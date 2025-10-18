@@ -73,9 +73,14 @@ describe('Game', () => {
 
   it('should allow the card czar to choose a winner', () => {
     game.start();
-    const card = player1.hand[0];
-    game.playCard(player1, card);
-    const winner = game.chooseWinner(card);
+    const card1 = player1.hand[0];
+    const card2 = player2.hand[0];
+    game.playCard(player1, card1);
+    game.playCard(player2, card2);
+
+    const votes = [player1, player2, player1];
+    const winner = game.chooseWinner(votes);
+
     expect(winner).toBe(player1);
   });
 });
