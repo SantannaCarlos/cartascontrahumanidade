@@ -1,12 +1,12 @@
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const Game = require('./game');
-const Player = require('./player');
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import Game from './game.js';
+import Player from './player.js';
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
+const server = createServer(app);
+const io = new Server(server);
 
 app.use(express.static('public'));
 
@@ -18,7 +18,7 @@ io.on('connection', (socket) => {
     socket.on('createRoom', (username) => {
         const roomId = Math.random().toString(36).substring(2, 8);
         const player = new Player(username, socket.id);
-        const game = new Game(player);
+        const game = new Game();
         rooms.set(roomId, game);
         socket.join(roomId);
         socket.emit('roomCreated', roomId);

@@ -1,5 +1,5 @@
 import cuid from 'cuid';
-import cards from '../cards.json';
+import cards from '../cards.json' with { type: 'json' };
 
 class Game {
   constructor() {
