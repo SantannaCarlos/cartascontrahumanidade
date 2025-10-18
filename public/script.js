@@ -3,8 +3,9 @@ const socket = io();
 // Estado do cliente
 let currentRoomId = null;
 let myId = null;
-let selectedCard = null;
+let selectedCards = []; // Agora pode ter múltiplas cartas
 let gameState = null;
+let pickCount = 1; // Quantas cartas precisam ser jogadas
 
 // Elementos DOM - Lobby
 const lobbyScreen = document.getElementById('lobby-screen');
@@ -35,8 +36,11 @@ const gameResult = document.getElementById('game-result');
 const yourHand = document.getElementById('your-hand');
 const yourHandSection = document.getElementById('your-hand-section');
 const handStatus = document.getElementById('hand-status');
+const pickIndicator = document.getElementById('pick-indicator');
+const submitCardsBtn = document.getElementById('submit-cards');
 const nextRoundBtn = document.getElementById('next-round');
-const newGameBtn = document.getElementById('new-game');
+const restartGameBtn = document.getElementById('restart-game');
+const leaveGameBtn = document.getElementById('leave-game');
 
 // Elementos DOM - Notificações
 const notification = document.getElementById('notification');
@@ -98,8 +102,22 @@ nextRoundBtn.addEventListener('click', () => {
     }
 });
 
-newGameBtn.addEventListener('click', () => {
+restartGameBtn.addEventListener('click', () => {
+    if (currentRoomId) {
+        socket.emit('restartGame', currentRoomId);
+    }
+});
+
+leaveGameBtn.addEventListener('click', () => {
     location.reload();
+});
+
+submitCardsBtn.addEventListener('click', () => {
+    if (selectedCards.length === pickCount) {
+        playCards(selectedCards);
+    } else {
+        showNotification(`Selecione exatamente ${pickCount} carta(s)`, 'error');
+    }
 });
 
 // Permitir pressionar Enter nos inputs
@@ -131,6 +149,14 @@ socket.on('kicked', (message) => {
     setTimeout(() => {
         location.reload();
     }, 2000);
+});
+
+socket.on('playerJoinedLate', (message) => {
+    showNotification(message, 'info');
+});
+
+socket.on('gameRestarted', (message) => {
+    showNotification(message, 'success');
 });
 
 socket.on('updateGame', (game) => {
@@ -184,7 +210,7 @@ function updateWaitingRoom(game) {
     // Atualizar contador de jogadores
     const playerCountEl = document.getElementById('player-count');
     if (playerCountEl) {
-        playerCountEl.textContent = `${game.players.length}/10`;
+        playerCountEl.textContent = `${game.players.length}`;
     }
     
     const isHost = game.hostId === myId;
@@ -320,12 +346,17 @@ function updatePhase(game, isCzar) {
     gameResult.style.display = 'none';
     playedCardsSection.style.display = 'none';
 
+    // Atualizar pickCount global
+    pickCount = game.pickCount || 1;
+
     if (game.phase === 'playing') {
+        const cardText = pickCount > 1 ? 'cartas' : 'carta';
         phaseText.textContent = isCzar
             ? 'Aguardando os jogadores escolherem...'
-            : 'Escolha uma carta!';
+            : `Escolha ${pickCount} ${cardText}!`;
 
-        handStatus.textContent = `(${game.playedCardsCount}/${game.players.length - 1} jogaram)`;
+        const nonCzarPlayers = game.players.filter(p => p.id !== game.cardCzar.id).length;
+        handStatus.textContent = `(${game.playedCardsCount}/${nonCzarPlayers} jogaram)`;
     } else if (game.phase === 'judging') {
         phaseText.textContent = isCzar
             ? 'Escolha a melhor resposta!'
@@ -353,13 +384,25 @@ function updatePhase(game, isCzar) {
 
 function updateHand(hand, phase, isCzar) {
     yourHand.innerHTML = '';
+    selectedCards = []; // Resetar seleção
 
     if (isCzar || phase === 'judging' || phase === 'round_end') {
         yourHandSection.style.display = 'none';
+        submitCardsBtn.style.display = 'none';
         return;
     }
 
     yourHandSection.style.display = 'block';
+
+    // Atualizar indicador de quantas cartas selecionar
+    if (pickIndicator && pickCount > 1) {
+        pickIndicator.textContent = ` - Selecione ${pickCount} cartas`;
+        pickIndicator.style.color = '#ffd700';
+        submitCardsBtn.style.display = 'block';
+    } else {
+        pickIndicator.textContent = '';
+        submitCardsBtn.style.display = 'none';
+    }
 
     hand.forEach((card, index) => {
         const cardDiv = document.createElement('div');
@@ -373,17 +416,36 @@ function updateHand(hand, phase, isCzar) {
         cardDiv.addEventListener('click', () => {
             if (phase !== 'playing') return;
 
-            // Remover seleção anterior
-            yourHand.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+            if (pickCount === 1) {
+                // Seleção única (comportamento antigo)
+                yourHand.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+                cardDiv.classList.add('selected');
+                selectedCards = [card];
+                
+                setTimeout(() => {
+                    playCards([card]);
+                }, 300);
+            } else {
+                // Seleção múltipla
+                const cardIndex = selectedCards.findIndex(c => c.text === card.text);
+                
+                if (cardIndex > -1) {
+                    // Desselecionar
+                    selectedCards.splice(cardIndex, 1);
+                    cardDiv.classList.remove('selected');
+                } else {
+                    // Selecionar (se ainda não atingiu o limite)
+                    if (selectedCards.length < pickCount) {
+                        selectedCards.push(card);
+                        cardDiv.classList.add('selected');
+                    } else {
+                        showNotification(`Você só pode selecionar ${pickCount} cartas`, 'error');
+                    }
+                }
 
-            // Selecionar nova carta
-            cardDiv.classList.add('selected');
-            selectedCard = card;
-
-            // Adicionar pequeno delay antes de jogar
-            setTimeout(() => {
-                playCard(card);
-            }, 300);
+                // Atualizar indicador
+                pickIndicator.textContent = ` - ${selectedCards.length}/${pickCount} selecionadas`;
+            }
         });
 
         // Adicionar animação de entrada
@@ -393,50 +455,83 @@ function updateHand(hand, phase, isCzar) {
     });
 }
 
-function playCard(card) {
-    if (!currentRoomId || !card) return;
+function playCards(cards) {
+    if (!currentRoomId || !cards || cards.length === 0) return;
 
-    socket.emit('playCard', { roomId: currentRoomId, cardText: card.text });
-    selectedCard = null;
-    showNotification('Carta jogada!', 'success');
+    const cardTexts = cards.map(c => c.text);
+    socket.emit('playCard', { roomId: currentRoomId, cardTexts });
+    selectedCards = [];
+    showNotification(`${cards.length} carta(s) jogada(s)!`, 'success');
 }
 
 function displayPlayedCards(cards, isCzar) {
     playedCards.innerHTML = '';
 
     cards.forEach((playedCard, index) => {
-        const cardDiv = document.createElement('div');
-        cardDiv.className = 'card card-white';
-        cardDiv.style.animationDelay = `${index * 0.1}s`;
-        cardDiv.innerHTML = `
-            <div class="card-header">CARTAS CONTRA A HUMANIDADE</div>
-            <div class="card-text">${playedCard.card.text}</div>
-        `;
+        const cardContainer = document.createElement('div');
+        cardContainer.className = 'played-card-container';
+        cardContainer.style.animationDelay = `${index * 0.1}s`;
+        
+        // Pegar as cartas (pode ser uma ou múltiplas)
+        const cardsArray = Array.isArray(playedCard.cards) ? playedCard.cards : [playedCard.cards];
+        
+        // Se tiver múltiplas cartas, adicionar indicador
+        if (cardsArray.length > 1) {
+            const indicator = document.createElement('div');
+            indicator.className = 'card-group-indicator';
+            indicator.textContent = cardsArray.length;
+            indicator.title = `${cardsArray.length} cartas`;
+            cardContainer.appendChild(indicator);
+        }
+        
+        // Criar as cartas dentro do container
+        cardsArray.forEach((card, cardIdx) => {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'card card-white';
+            cardDiv.innerHTML = `
+                <div class="card-header">CARTAS CONTRA A HUMANIDADE</div>
+                <div class="card-text">${card.text}</div>
+            `;
+            
+            if (cardsArray.length > 1) {
+                cardDiv.classList.add('multiple-card');
+            }
+            
+            cardContainer.appendChild(cardDiv);
+        });
 
         if (isCzar) {
-            cardDiv.style.cursor = 'pointer';
-            cardDiv.title = 'Clique para escolher esta carta como vencedora';
+            cardContainer.classList.add('clickable');
+            cardContainer.title = 'Clique para escolher esta resposta como vencedora';
             
-            cardDiv.addEventListener('click', () => {
+            cardContainer.addEventListener('click', () => {
                 // Adicionar feedback visual
-                cardDiv.style.transform = 'scale(0.95)';
+                const originalTransform = cardContainer.style.transform;
+                cardContainer.style.transform = 'scale(0.95)';
+                
                 setTimeout(() => {
+                    const cardsIdentifier = cardsArray.map(c => c.text).join('|');
                     socket.emit('chooseWinner', {
                         roomId: currentRoomId,
-                        cardText: playedCard.card.text
+                        cardsIdentifier
                     });
                 }, 150);
             });
-
-            // Não precisamos mais dos event listeners de mouse, o CSS :hover já cuida disso
-        } else {
-            cardDiv.style.cursor = 'default';
+            
+            // Adicionar efeito hover adicional
+            cardContainer.addEventListener('mouseenter', () => {
+                cardContainer.style.background = 'rgba(0, 212, 255, 0.15)';
+            });
+            
+            cardContainer.addEventListener('mouseleave', () => {
+                cardContainer.style.background = 'rgba(255, 255, 255, 0.05)';
+            });
         }
 
         // Adicionar animação de entrada
-        cardDiv.style.animation = 'cardFlip 0.6s ease-out forwards';
+        cardContainer.style.animation = 'cardFlip 0.6s ease-out forwards';
 
-        playedCards.appendChild(cardDiv);
+        playedCards.appendChild(cardContainer);
     });
 }
 
@@ -456,6 +551,17 @@ function showGameResult(winnerName) {
         const winner = gameState.players.find(p => p.name === winnerName);
         if (winner) {
             gameResult.querySelector('.game-winner-score').textContent = `${winner.score} pontos`;
+        }
+        
+        // Apenas o host pode ver o botão de reiniciar
+        const restartBtn = document.getElementById('restart-game');
+        const leaveBtn = document.getElementById('leave-game');
+        if (gameState.hostId === myId) {
+            restartBtn.style.display = 'inline-block';
+            leaveBtn.style.display = 'none';
+        } else {
+            restartBtn.style.display = 'none';
+            leaveBtn.style.display = 'inline-block';
         }
     }
 }

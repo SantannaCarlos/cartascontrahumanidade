@@ -49,20 +49,25 @@ io.on('connection', (socket) => {
             }
 
             const game = rooms.get(roomId);
-
-            if (game.started) {
-                socket.emit('gameError', 'Jogo já começou');
-                return;
-            }
-
             const player = new Player(username, socket.id);
-            game.addPlayer(player);
-            socketToRoom.set(socket.id, roomId);
 
-            socket.join(roomId);
-            socket.emit('joinedRoom', roomId);
-            updateGame(roomId);
-            console.log(`${username} entrou na sala ${roomId}`);
+            // Se o jogo já começou, adicionar como jogador atrasado
+            if (game.started) {
+                game.addLatePlayer(player);
+                socketToRoom.set(socket.id, roomId);
+                socket.join(roomId);
+                socket.emit('joinedRoom', roomId);
+                updateGame(roomId);
+                io.to(roomId).emit('playerJoinedLate', `${username} entrou no jogo`);
+                console.log(`${username} entrou atrasado na sala ${roomId}`);
+            } else {
+                game.addPlayer(player);
+                socketToRoom.set(socket.id, roomId);
+                socket.join(roomId);
+                socket.emit('joinedRoom', roomId);
+                updateGame(roomId);
+                console.log(`${username} entrou na sala ${roomId}`);
+            }
         } catch (error) {
             socket.emit('gameError', error.message);
         }
@@ -134,7 +139,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('playCard', ({ roomId, cardText }) => {
+    socket.on('playCard', ({ roomId, cardTexts }) => {
         try {
             if (!rooms.has(roomId)) {
                 socket.emit('gameError', 'Sala não encontrada');
@@ -149,21 +154,27 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            const card = player.hand.find(c => c.text === cardText);
-            if (!card) {
-                socket.emit('gameError', 'Carta não encontrada na sua mão');
-                return;
-            }
+            // Converter para array se não for
+            const textsArray = Array.isArray(cardTexts) ? cardTexts : [cardTexts];
+            
+            // Encontrar as cartas na mão
+            const cards = textsArray.map(text => {
+                const card = player.hand.find(c => c.text === text);
+                if (!card) {
+                    throw new Error('Carta não encontrada na sua mão');
+                }
+                return card;
+            });
 
-            game.playCard(player, card);
+            game.playCard(player, cards);
             updateGame(roomId);
-            console.log(`${player.name} jogou uma carta na sala ${roomId}`);
+            console.log(`${player.name} jogou ${cards.length} carta(s) na sala ${roomId}`);
         } catch (error) {
             socket.emit('gameError', error.message);
         }
     });
 
-    socket.on('chooseWinner', ({ roomId, cardText }) => {
+    socket.on('chooseWinner', ({ roomId, cardsIdentifier }) => {
         try {
             if (!rooms.has(roomId)) {
                 socket.emit('gameError', 'Sala não encontrada');
@@ -183,14 +194,43 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            const result = game.chooseWinner(cardText);
+            const result = game.chooseWinner(cardsIdentifier);
             io.to(roomId).emit('roundWinner', {
                 winner: result.winner.name,
-                card: cardText,
+                cards: cardsIdentifier,
                 gameEnded: result.gameEnded
             });
             updateGame(roomId);
             console.log(`${result.winner.name} ganhou a rodada na sala ${roomId}`);
+        } catch (error) {
+            socket.emit('gameError', error.message);
+        }
+    });
+
+    socket.on('restartGame', (roomId) => {
+        try {
+            if (!rooms.has(roomId)) {
+                socket.emit('gameError', 'Sala não encontrada');
+                return;
+            }
+
+            const game = rooms.get(roomId);
+
+            // Verificar se é o host
+            if (!game.isHost(socket.id)) {
+                socket.emit('gameError', 'Apenas o host pode reiniciar o jogo');
+                return;
+            }
+
+            if (game.players.length < 3) {
+                socket.emit('gameError', 'Precisa de pelo menos 3 jogadores para começar');
+                return;
+            }
+
+            game.restartGame();
+            updateGame(roomId);
+            io.to(roomId).emit('gameRestarted', 'O jogo foi reiniciado!');
+            console.log(`Jogo reiniciado na sala ${roomId}`);
         } catch (error) {
             socket.emit('gameError', error.message);
         }
