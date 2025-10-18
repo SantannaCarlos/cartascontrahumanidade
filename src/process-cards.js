@@ -55,8 +55,4 @@ async function processCards(directory) {
   return { white: whiteCards, black: blackCards };
 }
 
-(async () => {
-  const cards = await processCards('./');
-  await fs.writeFile('cards.json', JSON.stringify(cards, null, 2));
-  console.log('cards.json created successfully');
-})();
+export default processCards;

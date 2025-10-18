@@ -42,9 +42,14 @@ class Game {
     this.playedCards.push({ player, card });
   }
 
-  chooseWinner(card) {
-    const winner = this.playedCards.find(c => c.card === card).player;
-    return winner;
+  chooseWinner(votes) {
+    const voteCount = votes.reduce((acc, player) => {
+      acc[player.id] = (acc[player.id] || 0) + 1;
+      return acc;
+    }, {});
+
+    const winnerId = Object.keys(voteCount).reduce((a, b) => voteCount[a] > voteCount[b] ? a : b);
+    return this.players.find(p => p.id === winnerId);
   }
 }
 
