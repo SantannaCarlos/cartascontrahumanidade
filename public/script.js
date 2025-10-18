@@ -8,6 +8,7 @@ let gameState = null;
 let pickCount = 1; // Quantas cartas precisam ser jogadas
 let timerInterval = null; // Intervalo do timer visual
 let timeRemaining = 0; // Tempo restante em segundos
+let currentPhase = null; // Rastrear mudanças de fase para evitar reiniciar timer
 
 // Elementos DOM - Lobby
 const lobbyScreen = document.getElementById('lobby-screen');
@@ -393,6 +394,10 @@ function updatePhase(game, isCzar) {
 
     // Atualizar pickCount global
     pickCount = game.pickCount || 1;
+    
+    // Verificar se a fase mudou
+    const phaseChanged = currentPhase !== game.phase;
+    currentPhase = game.phase;
 
     if (game.phase === 'playing') {
         const cardText = pickCount > 1 ? 'cartas' : 'carta';
@@ -403,8 +408,10 @@ function updatePhase(game, isCzar) {
         const nonCzarPlayers = game.players.filter(p => p.id !== game.cardCzar.id).length;
         handStatus.textContent = `(${game.playedCardsCount}/${nonCzarPlayers} jogaram)`;
         
-        // Iniciar timer de 1 minuto para jogadores escolherem
-        startTimer(60);
+        // Iniciar timer de 1 minuto APENAS quando a fase mudar
+        if (phaseChanged) {
+            startTimer(60);
+        }
     } else if (game.phase === 'judging') {
         phaseText.textContent = isCzar
             ? 'Escolha a melhor resposta!'
@@ -416,8 +423,10 @@ function updatePhase(game, isCzar) {
         playedCardsSection.style.display = 'block';
         displayPlayedCards(game.playedCards, isCzar);
         
-        // Iniciar timer de 3 minutos para czar julgar
-        startTimer(180, true);
+        // Iniciar timer de 3 minutos APENAS quando a fase mudar
+        if (phaseChanged) {
+            startTimer(180, true);
+        }
     } else if (game.phase === 'round_end') {
         phaseText.textContent = 'Rodada finalizada!';
         handStatus.textContent = '';
@@ -452,13 +461,15 @@ function updateHand(hand, phase, isCzar) {
     yourHandSection.style.display = 'block';
 
     // Atualizar indicador de quantas cartas selecionar
-    if (pickIndicator && pickCount > 1) {
-        pickIndicator.textContent = ` - Selecione ${pickCount} cartas`;
+    // SEMPRE mostrar o botão de confirmar
+    if (pickIndicator) {
+        if (pickCount > 1) {
+            pickIndicator.textContent = ` - Selecione ${pickCount} cartas`;
+        } else {
+            pickIndicator.textContent = ` - Selecione 1 carta`;
+        }
         pickIndicator.style.color = '#ffd700';
         submitCardsBtn.style.display = 'block';
-    } else {
-        pickIndicator.textContent = '';
-        submitCardsBtn.style.display = 'none';
     }
 
     hand.forEach((card, index) => {
@@ -473,35 +484,37 @@ function updateHand(hand, phase, isCzar) {
         cardDiv.addEventListener('click', () => {
             if (phase !== 'playing') return;
 
-            if (pickCount === 1) {
-                // Seleção única (comportamento antigo)
-                yourHand.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
-                cardDiv.classList.add('selected');
-                selectedCards = [card];
-                
-                setTimeout(() => {
-                    playCards([card]);
-                }, 300);
+            // Sempre usar seleção com botão de confirmar
+            const cardIndex = selectedCards.findIndex(c => c.text === card.text);
+            
+            if (cardIndex > -1) {
+                // Desselecionar
+                selectedCards.splice(cardIndex, 1);
+                cardDiv.classList.remove('selected');
             } else {
-                // Seleção múltipla
-                const cardIndex = selectedCards.findIndex(c => c.text === card.text);
-                
-                if (cardIndex > -1) {
-                    // Desselecionar
-                    selectedCards.splice(cardIndex, 1);
-                    cardDiv.classList.remove('selected');
+                // Selecionar (se ainda não atingiu o limite)
+                if (selectedCards.length < pickCount) {
+                    selectedCards.push(card);
+                    cardDiv.classList.add('selected');
                 } else {
-                    // Selecionar (se ainda não atingiu o limite)
-                    if (selectedCards.length < pickCount) {
-                        selectedCards.push(card);
+                    // Se já atingiu o limite, remover primeira seleção e adicionar nova
+                    if (pickCount === 1) {
+                        yourHand.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+                        selectedCards = [card];
                         cardDiv.classList.add('selected');
                     } else {
                         showNotification(`Você só pode selecionar ${pickCount} cartas`, 'error');
                     }
                 }
+            }
 
-                // Atualizar indicador
+            // Atualizar indicador
+            if (pickCount > 1) {
                 pickIndicator.textContent = ` - ${selectedCards.length}/${pickCount} selecionadas`;
+            } else {
+                pickIndicator.textContent = selectedCards.length === 1 
+                    ? ` - 1 carta selecionada` 
+                    : ` - Selecione 1 carta`;
             }
         });
 
