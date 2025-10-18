@@ -1,0 +1,37 @@
+body {
+    font-family: sans-serif;
+    text-align: center;
+    background-color: #f0f0f0;
+}
+
+#menu {
+    margin-top: 50px;
+}
+
+#game {
+    margin-top: 20px;
+}
+
+.card {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 5px;
+    display: inline-block;
+    cursor: pointer;
+}
+
+.black-card {
+    background-color: #000;
+    color: #fff;
+}
+
+.white-card {
+    background-color: #fff;
+    color: #000;
+}
+
+.selection-card.selected {
+    border-color: #007bff;
+    border-width: 2px;
+}

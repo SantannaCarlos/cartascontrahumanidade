@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cards Against Humanity</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Cards Against Humanity</h1>
+
+    <div id="menu">
+        <h2>Create or Join a Room</h2>
+        <input type="text" id="username" placeholder="Enter your username">
+        <button id="createRoom">Create Room</button>
+        <input type="text" id="roomIdInput" placeholder="Enter Room ID">
+        <button id="joinRoom">Join Room</button>
+    </div>
+
+    <div id="game" style="display: none;">
+        <h2 id="room-id"></h2>
+        <div id="players"></div>
+        <button id="startGame" style="display: none;">Start Game</button>
+        <div id="black-card"></div>
+        <div id="white-cards"></div>
+        <div id="selections"></div>
+        <button id="chooseWinner" style="display: none;">Choose Winner</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
