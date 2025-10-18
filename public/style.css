@@ -881,6 +881,60 @@ body {
     color: #00d4ff;
 }
 
+.played-card-container {
+    display: inline-block;
+    position: relative;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    margin: 10px;
+    vertical-align: top;
+}
+
+.played-card-container:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(0, 212, 255, 0.5);
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
+}
+
+.played-card-container.clickable {
+    cursor: pointer;
+}
+
+.played-card-container .card {
+    margin: 0;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.played-card-container .multiple-card {
+    margin-bottom: 10px !important;
+}
+
+.played-card-container .multiple-card:last-child {
+    margin-bottom: 0 !important;
+}
+
+.card-group-indicator {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+}
+
 /* ===== YOUR HAND SECTION ===== */
 .your-hand-section {
     margin-top: 40px;

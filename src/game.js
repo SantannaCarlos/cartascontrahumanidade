@@ -15,10 +15,19 @@ class Game {
     this.roundWinner = null;
     this.winningCard = null;
     this.maxScore = 7;
+    this.roundTimer = null; // Timer para timeouts
+    this.playTimeout = 60000; // 1 minuto para jogar
+    this.judgeTimeout = 180000; // 3 minutos para julgar
 
     // Embaralhar os decks
     this.shuffleDeck(this.whiteDeck);
     this.shuffleDeck(this.blackDeck);
+  }
+
+  // Conta quantas cartas brancas são necessárias (conta ___ na carta preta)
+  getPickCount(blackCardText) {
+    const matches = blackCardText.match(/____/g);
+    return matches ? matches.length : 1;
   }
 
   shuffleDeck(deck) {
@@ -100,6 +109,12 @@ class Game {
     this.roundWinner = null;
     this.winningCard = null;
 
+    // Limpar timer anterior se existir
+    if (this.roundTimer) {
+      clearTimeout(this.roundTimer);
+      this.roundTimer = null;
+    }
+
     // Pegar nova carta preta
     if (this.blackDeck.length === 0) {
       // Reembaralhar cartas pretas se acabarem
@@ -109,9 +124,44 @@ class Game {
     this.blackCard = this.blackDeck.pop();
 
     this.phase = 'playing';
+
+    // Iniciar timer de 1 minuto para jogadores escolherem
+    this.roundTimer = setTimeout(() => {
+      this.handlePlayTimeout();
+    }, this.playTimeout);
   }
 
-  playCard(player, card) {
+  handlePlayTimeout() {
+    // Se ainda estiver na fase de jogar, forçar avançar para julgamento
+    if (this.phase === 'playing' && this.playedCards.length > 0) {
+      this.phase = 'judging';
+      this.shuffleDeck(this.playedCards);
+      
+      // Iniciar timer de 3 minutos para czar julgar
+      this.roundTimer = setTimeout(() => {
+        this.handleJudgeTimeout();
+      }, this.judgeTimeout);
+    } else if (this.phase === 'playing' && this.playedCards.length === 0) {
+      // Ninguém jogou, pular rodada
+      this.continueToNextRound();
+    }
+  }
+
+  handleJudgeTimeout() {
+    // Se ainda estiver na fase de julgamento, escolher aleatoriamente
+    if (this.phase === 'judging' && this.playedCards.length > 0) {
+      const randomCard = this.playedCards[Math.floor(Math.random() * this.playedCards.length)];
+      const winner = this.players.find(p => p.id === randomCard.playerId);
+      if (winner) {
+        winner.addScore();
+        this.roundWinner = winner;
+        this.winningCard = randomCard.cards;
+        this.phase = 'round_end';
+      }
+    }
+  }
+
+  playCard(player, cardsToPlay) {
     // Verificar se não é o Card Czar
     if (this.getCardCzar().id === player.id) {
       throw new Error('Card Czar não pode jogar cartas');
@@ -122,36 +172,73 @@ class Game {
       throw new Error('Você já jogou uma carta nesta rodada');
     }
 
-    // Jogar a carta
-    const playedCard = player.playCard(card);
+    // Converter para array se não for
+    const cards = Array.isArray(cardsToPlay) ? cardsToPlay : [cardsToPlay];
+
+    // Verificar quantidade correta de cartas
+    const pickCount = this.getPickCount(this.blackCard.text);
+    if (cards.length !== pickCount) {
+      throw new Error(`Você precisa jogar exatamente ${pickCount} carta(s)`);
+    }
+
+    // Jogar as cartas
+    const playedCards = [];
+    for (const card of cards) {
+      const playedCard = player.playCard(card);
+      playedCards.push(playedCard);
+    }
+
     this.playedCards.push({
       playerId: player.id,
-      card: playedCard
+      cards: playedCards
     });
 
-    // Reabastecer a mão do jogador
-    const newCard = this.whiteDeck.pop();
-    if (newCard) {
-      player.addCard(newCard);
+    // Reabastecer a mão do jogador (mesma quantidade que jogou)
+    for (let i = 0; i < cards.length; i++) {
+      const newCard = this.whiteDeck.pop();
+      if (newCard) {
+        player.addCard(newCard);
+      }
     }
 
     // Verificar se todos jogaram (exceto o Card Czar)
-    const nonCzarPlayers = this.players.length - 1;
+    const nonCzarPlayers = this.players.filter(p => p.id !== this.getCardCzar().id).length;
     if (this.playedCards.length === nonCzarPlayers) {
+      // Todos jogaram, cancelar timer e ir para julgamento
+      if (this.roundTimer) {
+        clearTimeout(this.roundTimer);
+      }
       this.phase = 'judging';
       // Embaralhar as cartas jogadas para anonimizar
       this.shuffleDeck(this.playedCards);
+      
+      // Iniciar timer de 3 minutos para czar julgar
+      this.roundTimer = setTimeout(() => {
+        this.handleJudgeTimeout();
+      }, this.judgeTimeout);
     }
   }
 
-  chooseWinner(cardText) {
+  chooseWinner(cardsIdentifier) {
     // Verificar se está na fase de julgamento
     if (this.phase !== 'judging') {
       throw new Error('Não é hora de escolher o vencedor');
     }
 
-    // Encontrar a carta jogada
-    const playedCard = this.playedCards.find(pc => pc.card.text === cardText);
+    // Limpar timer de julgamento
+    if (this.roundTimer) {
+      clearTimeout(this.roundTimer);
+      this.roundTimer = null;
+    }
+
+    // Encontrar a carta jogada (pode ser uma ou múltiplas)
+    const playedCard = this.playedCards.find(pc => {
+      const cardsText = Array.isArray(pc.cards) 
+        ? pc.cards.map(c => c.text).join('|')
+        : pc.cards.text;
+      return cardsText === cardsIdentifier;
+    });
+
     if (!playedCard) {
       throw new Error('Carta não encontrada');
     }
@@ -166,7 +253,7 @@ class Game {
     winner.addScore();
 
     this.roundWinner = winner;
-    this.winningCard = playedCard.card;
+    this.winningCard = playedCard.cards;
     this.phase = 'round_end';
 
     // Verificar se alguém ganhou o jogo
@@ -184,15 +271,53 @@ class Game {
     this.nextRound();
   }
 
+  restartGame() {
+    // Resetar pontuações
+    this.players.forEach(p => p.score = 0);
+    
+    // Resetar estado do jogo
+    this.started = true;
+    this.phase = 'playing';
+    this.cardCzarIndex = 0;
+    this.roundWinner = null;
+    this.winningCard = null;
+    
+    // Embaralhar decks novamente
+    this.whiteDeck = cards.white.map(text => ({ text }));
+    this.blackDeck = cards.black.map(text => ({ text }));
+    this.shuffleDeck(this.whiteDeck);
+    this.shuffleDeck(this.blackDeck);
+    
+    // Redealar cartas
+    this.dealInitialCards();
+    this.nextRound();
+  }
+
+  addLatePlayer(player) {
+    // Adicionar jogador mesmo com jogo em andamento
+    this.players.push(player);
+    
+    // Dar 10 cartas ao jogador
+    while (player.hand.length < 10) {
+      const card = this.whiteDeck.pop();
+      if (card) {
+        player.addCard(card);
+      }
+    }
+  }
+
   getCardCzar() {
     return this.players[this.cardCzarIndex];
   }
 
   getGameState() {
+    const pickCount = this.blackCard ? this.getPickCount(this.blackCard.text) : 1;
+    
     return {
       started: this.started,
       phase: this.phase,
       hostId: this.hostId,
+      pickCount: pickCount,
       players: this.players.map(p => ({
         id: p.id,
         name: p.name,
@@ -207,7 +332,7 @@ class Game {
       } : null,
       playedCardsCount: this.playedCards.length,
       playedCards: this.phase === 'judging' || this.phase === 'round_end' || this.phase === 'game_end'
-        ? this.playedCards.map(pc => ({ card: pc.card }))
+        ? this.playedCards.map(pc => ({ cards: pc.cards }))
         : [],
       roundWinner: this.roundWinner ? {
         id: this.roundWinner.id,
