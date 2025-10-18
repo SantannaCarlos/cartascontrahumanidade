@@ -1,29 +1,185 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cards Against Humanity</title>
+    <title>Cartas Contra a Humanidade</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Partículas de fundo -->
+    <div class="particles-bg">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
     <div id="app">
-        <h1>Cards Against Humanity</h1>
-        <div id="room-selection">
-            <input type="text" id="username" placeholder="Enter your username">
-            <button id="create-room">Create Room</button>
-            <input type="text" id="room-id" placeholder="Enter Room ID">
-            <button id="join-room">Join Room</button>
+        <!-- Tela de entrada -->
+        <div id="lobby-screen" class="screen">
+            <div class="logo">
+                <div class="logo-icon">🃏</div>
+                <h1>CARTAS CONTRA<br>A HUMANIDADE</h1>
+                <p class="tagline">Um jogo de festa para pessoas horríveis</p>
+                <div class="logo-decoration">
+                    <span class="decoration-line"></span>
+                    <span class="decoration-dot">●</span>
+                    <span class="decoration-line"></span>
+                </div>
+            </div>
+
+            <div class="lobby-container">
+                <input type="text" id="username" placeholder="Digite seu nome" maxlength="20">
+
+                <div class="lobby-buttons">
+                    <button id="create-room" class="btn btn-primary">Criar Sala</button>
+                    <div class="divider">ou</div>
+                    <div class="join-room-section">
+                        <input type="text" id="room-id" placeholder="Código da Sala" maxlength="6">
+                        <button id="join-room" class="btn btn-secondary">Entrar</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div id="game-room" style="display: none;">
-            <h2 id="room-code"></h2>
-            <div id="players"></div>
-            <div id="black-card"></div>
-            <div id="white-cards"></div>
-            <button id="start-game">Start Game</button>
-            <button id="play-card">Play Card</button>
-            <button id="choose-winner">Choose Winner</button>
+
+        <!-- Sala de espera -->
+        <div id="waiting-room" class="screen" style="display: none;">
+            <div class="room-header">
+                <div class="room-header-content">
+                    <span class="room-icon">🎮</span>
+                    <h2>Sala: <span id="room-code" class="room-code-highlight"></span></h2>
+                </div>
+                <button id="copy-code" class="btn btn-small">
+                    <span>📋</span> Copiar Código
+                </button>
+            </div>
+
+            <div class="waiting-content">
+                <div class="waiting-header">
+                    <h3>👥 Jogadores na Sala</h3>
+                    <span id="player-count" class="player-count">0/10</span>
+                </div>
+                <div id="waiting-players" class="player-list"></div>
+
+                <div class="waiting-info">
+                    <div class="info-box">
+                        <span class="info-icon">⏳</span>
+                        <p>Aguardando jogadores... (mínimo 3 jogadores)</p>
+                    </div>
+                    <div class="info-box tip-box">
+                        <span class="info-icon">💡</span>
+                        <p class="tip">Compartilhe o código da sala com seus amigos!</p>
+                    </div>
+                </div>
+
+                <div id="game-settings" class="game-settings" style="display: none;">
+                    <h4>⚙️ Configurações do Jogo</h4>
+                    <div class="setting-item">
+                        <label for="max-score">
+                            <span class="setting-icon">🏆</span>
+                            Pontos para Vencer:
+                        </label>
+                        <select id="max-score" class="setting-select">
+                            <option value="3">3 pontos (rápido)</option>
+                            <option value="5">5 pontos</option>
+                            <option value="7" selected>7 pontos (padrão)</option>
+                            <option value="10">10 pontos</option>
+                            <option value="15">15 pontos (longo)</option>
+                            <option value="20">20 pontos (maratona)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="waiting-buttons">
+                    <button id="start-game" class="btn btn-primary btn-large" disabled>
+                        <span class="btn-icon">🎲</span> Iniciar Jogo
+                    </button>
+                    <button id="leave-room" class="btn btn-danger">
+                        <span class="btn-icon">🚪</span> Sair da Sala
+                    </button>
+                </div>
+            </div>
         </div>
+
+        <!-- Tela do jogo -->
+        <div id="game-screen" class="screen" style="display: none;">
+            <!-- Header do jogo -->
+            <div class="game-header">
+                <div class="room-info">
+                    <span class="room-code-small">Sala: <span id="game-room-code"></span></span>
+                    <span class="max-score-indicator">🏆 Meta: <span id="game-max-score">7</span> pts</span>
+                </div>
+                <div class="phase-indicator">
+                    <span id="phase-text"></span>
+                </div>
+                <div class="czar-indicator">
+                    <span id="czar-text"></span>
+                </div>
+            </div>
+
+            <!-- Placar -->
+            <div class="scoreboard">
+                <div id="players-scores" class="players-grid"></div>
+            </div>
+
+            <!-- Carta preta -->
+            <div class="black-card-container">
+                <div id="black-card" class="card card-black">
+                    <div class="card-header">
+                        <span class="card-logo">CARTAS CONTRA A HUMANIDADE</span>
+                    </div>
+                    <div class="card-text"></div>
+                    <div class="card-footer">
+                        <span class="card-pick">ESCOLHA 1</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cartas jogadas (fase de julgamento) -->
+            <div id="played-cards-section" class="played-cards-section" style="display: none;">
+                <h3>Escolha a melhor resposta:</h3>
+                <div id="played-cards" class="cards-grid"></div>
+            </div>
+
+            <!-- Resultado da rodada -->
+            <div id="round-result" class="round-result" style="display: none;">
+                <h2>Vencedor da Rodada!</h2>
+                <div class="winner-info">
+                    <p class="winner-name"></p>
+                    <div class="winning-card card card-white">
+                        <div class="card-text"></div>
+                    </div>
+                </div>
+                <button id="next-round" class="btn btn-primary">Próxima Rodada</button>
+            </div>
+
+            <!-- Resultado do jogo -->
+            <div id="game-result" class="game-result" style="display: none;">
+                <h1>FIM DE JOGO!</h1>
+                <div class="game-winner-info">
+                    <p class="game-winner-name"></p>
+                    <p class="game-winner-score"></p>
+                </div>
+                <button id="new-game" class="btn btn-primary">Novo Jogo</button>
+            </div>
+
+            <!-- Sua mão -->
+            <div id="your-hand-section" class="your-hand-section">
+                <h3>Suas Cartas <span id="hand-status"></span></h3>
+                <div id="your-hand" class="cards-grid"></div>
+            </div>
+        </div>
+
+        <!-- Notificações -->
+        <div id="notification" class="notification"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
