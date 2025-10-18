@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "start /b node --experimental-vm-modules src/server.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "process-cards": "node src/process-cards.js"
   },
