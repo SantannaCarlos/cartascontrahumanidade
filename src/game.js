@@ -1,10 +1,11 @@
 import cuid from 'cuid';
+import cards from '../cards.json';
 
 class Game {
   constructor() {
     this.code = cuid.slug();
     this.players = [];
-    this.cards = { white: [], black: [] };
+    this.cards = cards;
     this.playedCards = [];
     this.blackCard = null;
     this.cardCzar = null;

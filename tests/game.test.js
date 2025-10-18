@@ -8,34 +8,6 @@ describe('Game', () => {
 
   beforeEach(() => {
     game = new Game();
-    game.cards = {
-      white: [
-        { text: 'Card 1' },
-        { text: 'Card 2' },
-        { text: 'Card 3' },
-        { text: 'Card 4' },
-        { text: 'Card 5' },
-        { text: 'Card 6' },
-        { text: 'Card 7' },
-        { text: 'Card 8' },
-        { text: 'Card 9' },
-        { text: 'Card 10' },
-        { text: 'Card 11' },
-        { text: 'Card 12' },
-        { text: 'Card 13' },
-        { text: 'Card 14' },
-        { text: 'Card 15' },
-        { text: 'Card 16' },
-        { text: 'Card 17' },
-        { text: 'Card 18' },
-        { text: 'Card 19' },
-        { text: 'Card 20' },
-      ],
-      black: [
-        { text: 'Black Card 1', pick: 1 },
-        { text: 'Black Card 2', pick: 1 },
-      ],
-    };
     player1 = new Player('Player 1');
     player2 = new Player('Player 2');
     game.addPlayer(player1);
