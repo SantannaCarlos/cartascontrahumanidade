@@ -7,24 +7,23 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Cards Against Humanity</h1>
-
-    <div id="menu">
-        <h2>Create or Join a Room</h2>
-        <input type="text" id="username" placeholder="Enter your username">
-        <button id="createRoom">Create Room</button>
-        <input type="text" id="roomIdInput" placeholder="Enter Room ID">
-        <button id="joinRoom">Join Room</button>
-    </div>
-
-    <div id="game" style="display: none;">
-        <h2 id="room-id"></h2>
-        <div id="players"></div>
-        <button id="startGame" style="display: none;">Start Game</button>
-        <div id="black-card"></div>
-        <div id="white-cards"></div>
-        <div id="selections"></div>
-        <button id="chooseWinner" style="display: none;">Choose Winner</button>
+    <div id="app">
+        <h1>Cards Against Humanity</h1>
+        <div id="room-selection">
+            <input type="text" id="username" placeholder="Enter your username">
+            <button id="create-room">Create Room</button>
+            <input type="text" id="room-id" placeholder="Enter Room ID">
+            <button id="join-room">Join Room</button>
+        </div>
+        <div id="game-room" style="display: none;">
+            <h2 id="room-code"></h2>
+            <div id="players"></div>
+            <div id="black-card"></div>
+            <div id="white-cards"></div>
+            <button id="start-game">Start Game</button>
+            <button id="play-card">Play Card</button>
+            <button id="choose-winner">Choose Winner</button>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

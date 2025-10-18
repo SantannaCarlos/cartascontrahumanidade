@@ -1,132 +1,110 @@
 const socket = io();
 
-const menu = document.getElementById('menu');
-const gameDiv = document.getElementById('game');
 const usernameInput = document.getElementById('username');
-const createRoomBtn = document.getElementById('createRoom');
-const roomIdInput = document.getElementById('roomIdInput');
-const joinRoomBtn = document.getElementById('joinRoom');
-const roomIdDisplay = document.getElementById('room-id');
+const roomIdInput = document.getElementById('room-id');
+const createRoomBtn = document.getElementById('create-room');
+const joinRoomBtn = document.getElementById('join-room');
+const roomSelectionDiv = document.getElementById('room-selection');
+const gameRoomDiv = document.getElementById('game-room');
+const roomCodeH2 = document.getElementById('room-code');
 const playersDiv = document.getElementById('players');
-const startGameBtn = document.getElementById('startGame');
 const blackCardDiv = document.getElementById('black-card');
 const whiteCardsDiv = document.getElementById('white-cards');
-const selectionsDiv = document.getElementById('selections');
-const chooseWinnerBtn = document.getElementById('chooseWinner');
+const startGameBtn = document.getElementById('start-game');
+const playCardBtn = document.getElementById('play-card');
+const chooseWinnerBtn = document.getElementById('choose-winner');
 
-let roomId = null;
-let isHost = false;
+let selectedWhiteCard = null;
 
 createRoomBtn.addEventListener('click', () => {
     const username = usernameInput.value;
     if (username) {
         socket.emit('createRoom', username);
-        isHost = true;
     }
 });
 
 joinRoomBtn.addEventListener('click', () => {
     const username = usernameInput.value;
-    const id = roomIdInput.value;
-    if (username && id) {
-        roomId = id;
+    const roomId = roomIdInput.value;
+    if (username && roomId) {
         socket.emit('joinRoom', { roomId, username });
     }
 });
 
-startGameBtn.addEventListener('click', () => {
-    if (roomId && isHost) {
-        socket.emit('startGame', roomId);
-    }
+socket.on('roomCreated', (roomId) => {
+    roomSelectionDiv.style.display = 'none';
+    gameRoomDiv.style.display = 'block';
+    roomCodeH2.textContent = `Room ID: ${roomId}`;
 });
 
-chooseWinnerBtn.addEventListener('click', () => {
-    const selectedCard = document.querySelector('.selection-card.selected');
-    if (selectedCard) {
-        const cardText = selectedCard.textContent;
-        socket.emit('chooseWinner', { roomId, card: cardText });
-    }
-});
-
-socket.on('roomCreated', (id) => {
-    roomId = id;
-    menu.style.display = 'none';
-    gameDiv.style.display = 'block';
-    roomIdDisplay.textContent = `Room ID: ${roomId}`;
-    startGameBtn.style.display = 'block';
-});
-
-socket.on('joinedRoom', (id) => {
-    roomId = id;
-    menu.style.display = 'none';
-    gameDiv.style.display = 'block';
-    roomIdDisplay.textContent = `Room ID: ${roomId}`;
+socket.on('joinedRoom', (roomId) => {
+    roomSelectionDiv.style.display = 'none';
+    gameRoomDiv.style.display = 'block';
+    roomCodeH2.textContent = `Room ID: ${roomId}`;
 });
 
 socket.on('updateGame', (game) => {
-    playersDiv.innerHTML = '<h3>Players:</h3>';
+    playersDiv.innerHTML = '';
     game.players.forEach(player => {
-        const playerDiv = document.createElement('div');
-        playerDiv.textContent = `${player.name}: ${player.score}`;
-        playersDiv.appendChild(playerDiv);
+        const playerCard = document.createElement('div');
+        playerCard.classList.add('player-card');
+        playerCard.textContent = player.name;
+        playersDiv.appendChild(playerCard);
     });
 
-    if (game.currentBlackCard) {
-        blackCardDiv.innerHTML = `<h3>Black Card:</h3><div class="card black-card">${game.currentBlackCard}</div>`;
+    if (game.blackCard) {
+        blackCardDiv.textContent = game.blackCard.text;
     } else {
-        blackCardDiv.innerHTML = '';
+        blackCardDiv.textContent = 'Waiting for game to start...';
     }
 
-    const me = game.players.find(p => p.id === socket.id);
-    if (me) {
-        whiteCardsDiv.innerHTML = '<h3>Your Hand:</h3>';
-        me.hand.forEach(card => {
-            const cardDiv = document.createElement('div');
-            cardDiv.classList.add('card', 'white-card');
-            cardDiv.textContent = card;
-            cardDiv.addEventListener('click', () => {
-                if (me !== game.cardCzar) {
-                    socket.emit('playCard', { roomId, card });
+    whiteCardsDiv.innerHTML = '';
+    const currentPlayer = game.players.find(p => p.id === socket.id);
+    if (currentPlayer) {
+        currentPlayer.hand.forEach(card => {
+            const whiteCard = document.createElement('div');
+            whiteCard.classList.add('white-card');
+            whiteCard.textContent = card.text;
+            whiteCard.addEventListener('click', () => {
+                if (selectedWhiteCard) {
+                    selectedWhiteCard.classList.remove('selected');
                 }
+                whiteCard.classList.add('selected');
+                selectedWhiteCard = whiteCard;
             });
-            whiteCardsDiv.appendChild(cardDiv);
+            whiteCardsDiv.appendChild(whiteCard);
         });
     }
-
-    selectionsDiv.innerHTML = '<h3>Selections:</h3>';
-    if (game.selections) {
-        for (const [player, card] of Object.entries(game.selections)) {
-            const cardDiv = document.createElement('div');
-            cardDiv.classList.add('card', 'selection-card');
-            cardDiv.textContent = card;
-            if (me === game.cardCzar) {
-                cardDiv.addEventListener('click', () => {
-                    document.querySelectorAll('.selection-card').forEach(c => c.classList.remove('selected'));
-                    cardDiv.classList.add('selected');
-                });
-            }
-            selectionsDiv.appendChild(cardDiv);
-        }
-    }
-
-
-    if (me === game.cardCzar && game.allCardsPlayed()) {
-        chooseWinnerBtn.style.display = 'block';
-    } else {
-        chooseWinnerBtn.style.display = 'none';
-    }
-
-    if (isHost && !game.round) {
-        startGameBtn.style.display = 'block';
-    } else {
-        startGameBtn.style.display = 'none';
-    }
-});
-
-socket.on('winnerChosen', ({ winner, card }) => {
-    alert(`${winner} won the round with "${card}"!`);
 });
 
 socket.on('error', (message) => {
     alert(message);
+});
+
+startGameBtn.addEventListener('click', () => {
+    const roomId = roomIdInput.value || roomCodeH2.textContent.split(': ')[1];
+    socket.emit('startGame', roomId);
+});
+
+playCardBtn.addEventListener('click', () => {
+    if (selectedWhiteCard) {
+        const roomId = roomIdInput.value || roomCodeH2.textContent.split(': ')[1];
+        const cardText = selectedWhiteCard.textContent;
+        socket.emit('playCard', { roomId, card: { text: cardText } });
+        selectedWhiteCard.remove();
+        selectedWhiteCard = null;
+    } else {
+        alert('Please select a white card to play.');
+    }
+});
+
+chooseWinnerBtn.addEventListener('click', () => {
+    if (selectedWhiteCard) {
+        const roomId = roomIdInput.value || roomCodeH2.textContent.split(': ')[1];
+        const cardText = selectedWhiteCard.textContent;
+        socket.emit('chooseWinner', { roomId, card: { text: cardText } });
+        selectedWhiteCard = null;
+    } else {
+        alert('Please select a white card to choose as winner.');
+    }
 });
