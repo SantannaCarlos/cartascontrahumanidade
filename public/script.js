@@ -6,6 +6,8 @@ let myId = null;
 let selectedCards = []; // Agora pode ter múltiplas cartas
 let gameState = null;
 let pickCount = 1; // Quantas cartas precisam ser jogadas
+let timerInterval = null; // Intervalo do timer visual
+let timeRemaining = 0; // Tempo restante em segundos
 
 // Elementos DOM - Lobby
 const lobbyScreen = document.getElementById('lobby-screen');
@@ -27,6 +29,8 @@ const leaveRoomBtn = document.getElementById('leave-room');
 const gameRoomCodeSpan = document.getElementById('game-room-code');
 const phaseText = document.getElementById('phase-text');
 const czarText = document.getElementById('czar-text');
+const timerContainer = document.getElementById('timer-container');
+const timerDisplay = document.getElementById('timer-display');
 const playersScores = document.getElementById('players-scores');
 const blackCard = document.getElementById('black-card');
 const playedCardsSection = document.getElementById('played-cards-section');
@@ -341,6 +345,47 @@ function updateGameScreen(game) {
     updateHand(game.yourHand, game.phase, isCzar);
 }
 
+// Funções de controle do timer
+function startTimer(duration, isJudging = false) {
+    // Limpar timer anterior se existir
+    stopTimer();
+    
+    timeRemaining = duration;
+    timerContainer.style.display = 'flex';
+    updateTimerDisplay();
+    
+    timerInterval = setInterval(() => {
+        timeRemaining--;
+        
+        if (timeRemaining <= 0) {
+            stopTimer();
+            return;
+        }
+        
+        updateTimerDisplay();
+        
+        // Adicionar classe de warning quando faltar 20 segundos
+        if (timeRemaining <= 20) {
+            timerContainer.classList.add('warning');
+        }
+    }, 1000);
+}
+
+function stopTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    timerContainer.style.display = 'none';
+    timerContainer.classList.remove('warning');
+}
+
+function updateTimerDisplay() {
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = timeRemaining % 60;
+    timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 function updatePhase(game, isCzar) {
     roundResult.style.display = 'none';
     gameResult.style.display = 'none';
@@ -357,6 +402,9 @@ function updatePhase(game, isCzar) {
 
         const nonCzarPlayers = game.players.filter(p => p.id !== game.cardCzar.id).length;
         handStatus.textContent = `(${game.playedCardsCount}/${nonCzarPlayers} jogaram)`;
+        
+        // Iniciar timer de 1 minuto para jogadores escolherem
+        startTimer(60);
     } else if (game.phase === 'judging') {
         phaseText.textContent = isCzar
             ? 'Escolha a melhor resposta!'
@@ -367,18 +415,27 @@ function updatePhase(game, isCzar) {
         // Mostrar cartas jogadas
         playedCardsSection.style.display = 'block';
         displayPlayedCards(game.playedCards, isCzar);
+        
+        // Iniciar timer de 3 minutos para czar julgar
+        startTimer(180, true);
     } else if (game.phase === 'round_end') {
         phaseText.textContent = 'Rodada finalizada!';
         handStatus.textContent = '';
 
         // Mostrar resultado da rodada
         displayRoundResult(game);
+        
+        // Parar timer
+        stopTimer();
     } else if (game.phase === 'game_end') {
         phaseText.textContent = 'Jogo finalizado!';
         handStatus.textContent = '';
 
         // Mostrar resultado do jogo
         showGameResult(game.roundWinner.name);
+        
+        // Parar timer
+        stopTimer();
     }
 }
 
