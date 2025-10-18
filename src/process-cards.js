@@ -1,51 +1,62 @@
-const fs = require('fs');
-const path = require('path');
-const { PDFParse } = require('pdf-parse');
+import fs from 'fs/promises';
+import path from 'path';
+import CardParser from './card-parser.js';
 
-const pdfDirectory = 'C:\\Users\\chsan\\Downloads\\Nova pasta\\';
+function extractCards(text, cardType) {
+  const cards = text
+    .split('\n\n')
+    .map(block => block.replace(/[\n\t]/g, ' ').trim())
+    .filter(card => card.length > 0 && !card.startsWith('--'));
 
-async function processPdfs() {
-    const files = fs.readdirSync(pdfDirectory).filter(file => file.endsWith('.pdf'));
-    let whiteCards = [];
-    let blackCards = [];
-
-    for (const file of files) {
-        const pdfPath = path.join(pdfDirectory, file);
-        const dataBuffer = fs.readFileSync(pdfPath);
-        const parser = new PDFParse({ data: dataBuffer });
-        const result = await parser.getText();
-        await parser.destroy();
-
-        let text = result.text;
-        // Remove page numbers and other noise
-        text = text.replace(/-- \d+ of \d+ --/g, '');
-        text = text.replace(/Created by the awesome site http:\/\/customcardsagainsthumanity.com/g, '');
-        text = text.replace(/vitorlegolas `s pack/g, '');
-
-        // Normalize whitespace
-        text = text.replace(/\t/g, ' ').replace(/\s+/g, ' ').trim();
-
-        // Split into sentences (cards)
-        const cards = text.match(/[^.!?]+[.!?]+/g) || [];
-
-        cards.forEach(card => {
-            const cleanedCard = card.trim();
-            if (cleanedCard) {
-                if (cleanedCard.includes('________')) {
-                    blackCards.push(cleanedCard);
-                } else {
-                    whiteCards.push(cleanedCard);
-                }
-            }
-        });
+  const result = [];
+  for (const card of cards) {
+    const sentences = card.split(/(?<=[.?!])\s+/);
+    for (const sentence of sentences) {
+      const trimmedSentence = sentence.replace(/-- \d+ of \d+ --/, '').trim();
+      if (trimmedSentence.length > 0 && !/^\d+$/.test(trimmedSentence)) {
+        if (cardType === 'black' && !trimmedSentence.includes('_')) {
+          continue;
+        }
+        result.push(trimmedSentence);
+      }
     }
+  }
 
-    // Remove duplicates
-    whiteCards = [...new Set(whiteCards)];
-    blackCards = [...new Set(blackCards)];
+  const uniqueCards = [...new Set(result)];
 
-    fs.writeFileSync('cards.json', JSON.stringify({ whiteCards, blackCards }, null, 2));
-    console.log('Cards processed and saved to cards.json');
+  if (cardType === 'white') {
+    return uniqueCards.map(text => ({ text }));
+  } else {
+    return uniqueCards.map(text => ({ text, pick: 1 }));
+  }
 }
 
-processPdfs();
+async function processCards(directory) {
+  const files = await fs.readdir(directory);
+  const pdfFiles = files.filter(file => path.extname(file).toLowerCase() === '.pdf');
+
+  let whiteCards = [];
+  let blackCards = [];
+
+  const cardParser = new CardParser();
+
+  for (const file of pdfFiles) {
+    const pdfPath = path.join(directory, file);
+    const pdfBuffer = await fs.readFile(pdfPath);
+    const text = await cardParser.parse(pdfBuffer);
+
+    if (file.includes('Brancas')) {
+      whiteCards = whiteCards.concat(extractCards(text, 'white'));
+    } else if (file.includes('Pretas')) {
+      blackCards = blackCards.concat(extractCards(text, 'black'));
+    }
+  }
+
+  return { white: whiteCards, black: blackCards };
+}
+
+(async () => {
+  const cards = await processCards('./');
+  await fs.writeFile('cards.json', JSON.stringify(cards, null, 2));
+  console.log('cards.json created successfully');
+})();
