@@ -449,12 +449,15 @@ function updatePhase(game, isCzar) {
 }
 
 function updateHand(hand, phase, isCzar) {
+    // Preservar seleção atual
+    const previousSelection = selectedCards.map(c => c.text);
+    
     yourHand.innerHTML = '';
-    selectedCards = []; // Resetar seleção
 
     if (isCzar || phase === 'judging' || phase === 'round_end') {
         yourHandSection.style.display = 'none';
         submitCardsBtn.style.display = 'none';
+        selectedCards = []; // Resetar apenas quando não estiver jogando
         return;
     }
 
@@ -472,6 +475,9 @@ function updateHand(hand, phase, isCzar) {
         submitCardsBtn.style.display = 'block';
     }
 
+    // Reconstruir selectedCards baseado na seleção anterior
+    selectedCards = [];
+
     hand.forEach((card, index) => {
         const cardDiv = document.createElement('div');
         cardDiv.className = 'card card-white';
@@ -480,6 +486,12 @@ function updateHand(hand, phase, isCzar) {
             <div class="card-header">CARTAS CONTRA A HUMANIDADE</div>
             <div class="card-text">${card.text}</div>
         `;
+
+        // Restaurar seleção se estava selecionada antes
+        if (previousSelection.includes(card.text)) {
+            cardDiv.classList.add('selected');
+            selectedCards.push(card);
+        }
 
         cardDiv.addEventListener('click', () => {
             if (phase !== 'playing') return;
@@ -523,6 +535,13 @@ function updateHand(hand, phase, isCzar) {
 
         yourHand.appendChild(cardDiv);
     });
+    
+    // Atualizar indicador com seleção restaurada
+    if (pickCount > 1 && selectedCards.length > 0) {
+        pickIndicator.textContent = ` - ${selectedCards.length}/${pickCount} selecionadas`;
+    } else if (pickCount === 1 && selectedCards.length === 1) {
+        pickIndicator.textContent = ` - 1 carta selecionada`;
+    }
 }
 
 function playCards(cards) {
