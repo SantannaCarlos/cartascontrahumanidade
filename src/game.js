@@ -7,6 +7,8 @@ class Game {
     // Criar objetos de carta com text property
     this.whiteDeck = cards.white.map(text => ({ text }));
     this.blackDeck = cards.black.map(text => ({ text }));
+    this.whiteDiscard = []; // Pilha de descarte para cartas brancas
+    this.blackDiscard = []; // Pilha de descarte para cartas pretas
     this.playedCards = [];
     this.blackCard = null;
     this.cardCzarIndex = 0;
@@ -35,6 +37,38 @@ class Game {
       const j = Math.floor(Math.random() * (i + 1));
       [deck[i], deck[j]] = [deck[j], deck[i]];
     }
+  }
+
+  // Puxar carta branca do deck (com reembaralhamento automático)
+  drawWhiteCard() {
+    if (this.whiteDeck.length === 0) {
+      // Se o deck acabou, reembaralhar o descarte
+      if (this.whiteDiscard.length === 0) {
+        console.error('Não há mais cartas brancas disponíveis!');
+        return null;
+      }
+      console.log(`Reembaralhando ${this.whiteDiscard.length} cartas brancas do descarte`);
+      this.whiteDeck = [...this.whiteDiscard];
+      this.whiteDiscard = [];
+      this.shuffleDeck(this.whiteDeck);
+    }
+    return this.whiteDeck.pop();
+  }
+
+  // Puxar carta preta do deck (com reembaralhamento automático)
+  drawBlackCard() {
+    if (this.blackDeck.length === 0) {
+      // Se o deck acabou, reembaralhar o descarte
+      if (this.blackDiscard.length === 0) {
+        console.error('Não há mais cartas pretas disponíveis!');
+        return null;
+      }
+      console.log(`Reembaralhando ${this.blackDiscard.length} cartas pretas do descarte`);
+      this.blackDeck = [...this.blackDiscard];
+      this.blackDiscard = [];
+      this.shuffleDeck(this.blackDeck);
+    }
+    return this.blackDeck.pop();
   }
 
   addPlayer(player) {
@@ -96,7 +130,7 @@ class Game {
   dealInitialCards() {
     this.players.forEach(player => {
       while (player.hand.length < 10) {
-        const card = this.whiteDeck.pop();
+        const card = this.drawWhiteCard();
         if (card) {
           player.addCard(card);
         }
@@ -115,13 +149,13 @@ class Game {
       this.roundTimer = null;
     }
 
-    // Pegar nova carta preta
-    if (this.blackDeck.length === 0) {
-      // Reembaralhar cartas pretas se acabarem
-      this.blackDeck = cards.black.map(text => ({ text }));
-      this.shuffleDeck(this.blackDeck);
+    // Adicionar carta preta anterior ao descarte
+    if (this.blackCard) {
+      this.blackDiscard.push(this.blackCard);
     }
-    this.blackCard = this.blackDeck.pop();
+
+    // Pegar nova carta preta usando o sistema de deck
+    this.blackCard = this.drawBlackCard();
 
     this.phase = 'playing';
 
@@ -186,6 +220,8 @@ class Game {
     for (const card of cards) {
       const playedCard = player.playCard(card);
       playedCards.push(playedCard);
+      // Adicionar carta ao descarte
+      this.whiteDiscard.push(playedCard);
     }
 
     this.playedCards.push({
@@ -195,7 +231,7 @@ class Game {
 
     // Reabastecer a mão do jogador (mesma quantidade que jogou)
     for (let i = 0; i < cards.length; i++) {
-      const newCard = this.whiteDeck.pop();
+      const newCard = this.drawWhiteCard();
       if (newCard) {
         player.addCard(newCard);
       }
@@ -297,9 +333,9 @@ class Game {
     // Adicionar jogador mesmo com jogo em andamento
     this.players.push(player);
     
-    // Dar 10 cartas ao jogador
+    // Dar 10 cartas ao jogador usando o sistema de deck
     while (player.hand.length < 10) {
-      const card = this.whiteDeck.pop();
+      const card = this.drawWhiteCard();
       if (card) {
         player.addCard(card);
       }

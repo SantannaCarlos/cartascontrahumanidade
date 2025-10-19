@@ -693,7 +693,6 @@ body {
 
 .timer-icon {
     font-size: 1.2rem;
-    animation: timerRotate 2s linear infinite;
 }
 
 .timer-display {
@@ -790,6 +789,9 @@ body {
     border-radius: 18px;
     padding: 30px;
     min-height: 220px;
+    width: 220px;
+    min-width: 220px;
+    max-width: 220px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -948,8 +950,9 @@ body {
 
 /* ===== CARDS GRID ===== */
 .cards-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 20px;
     margin: 20px 0;
 }
@@ -995,6 +998,9 @@ body {
 .played-card-container .card {
     margin: 0;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    width: 220px;
+    min-width: 220px;
+    max-width: 220px;
 }
 
 .played-card-container .multiple-card {
